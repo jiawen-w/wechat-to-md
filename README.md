@@ -5,7 +5,7 @@
 - 把任意公众号文章保存为本地 Markdown（含图片）
 - 把多篇文章喂给 AI，一键重组成一篇新的公众号文章（会读取原来的图片信息，新的文章也会包含图片）
 - 支持模仿量子位、极客公园、机器之心等 8 种自媒体大 V 风格
-- 输出兼容 [wewrite](https://wewrite.app) 字节跳动排版主题
+- 输出兼容 [wewrite](https://github.com/oaker-io/wewrite） 字节跳动排版主题
 
 ---
 
@@ -163,7 +163,7 @@ python wechat_to_md.py --merge ./大卫芬奇 --topic "芬奇的视觉语言"
 - 微信文章链接有时效性，建议尽快保存
 - 需要登录才能访问的文章无法抓取
 - AI 重组功能需要豆包 API，图片分析会消耗额外 token
-- 生成的 wewrite 格式文章可直接粘贴到 [wewrite.app](https://wewrite.app) 使用
+- 生成的 wewrite 格式文章可直接粘贴到 [wewrite.app]([https://wewrite.app](https://github.com/oaker-io/wewrite)) 使用
 
 ---
 
