@@ -669,11 +669,26 @@ def wx_upload_image(token: str, img_path: str) -> str:
 
 
 def wx_upload_thumb(token: str, img_path: str) -> str:
-    """上传封面图（永久素材），返回 media_id"""
+    """将图片压缩为封面缩略图后上传（永久素材 type=image），返回 media_id"""
+    from PIL import Image
+    import io
+
+    # 压缩到适合封面的尺寸，确保 <1MB
+    img = Image.open(img_path).convert("RGB")
+    img.thumbnail((900, 500), Image.LANCZOS)
+
+    buf = io.BytesIO()
+    quality = 85
+    img.save(buf, format="JPEG", quality=quality)
+    # 若超过 1MB 继续降质
+    while buf.tell() > 900 * 1024 and quality > 40:
+        quality -= 10
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality)
+    buf.seek(0)
+
     url = f"https://api.weixin.qq.com/cgi-bin/material/add_material?access_token={token}&type=image"
-    mime = mimetypes.guess_type(img_path)[0] or "image/jpeg"
-    with open(img_path, "rb") as f:
-        resp = requests.post(url, files={"media": (Path(img_path).name, f, mime)}, timeout=30)
+    resp = requests.post(url, files={"media": ("thumb.jpg", buf, "image/jpeg")}, timeout=30)
     data = resp.json()
     if "media_id" not in data:
         raise RuntimeError(f"封面上传失败: {data}")
@@ -759,14 +774,20 @@ def push_to_wx_draft(md_path: str):
     # 读取 Markdown
     md_text = md_path.read_text(encoding="utf-8")
 
-    # 提取标题（第一个 # 行）
-    title_match = re.search(r"^#\s+(.+)$", md_text, re.MULTILINE)
-    title = title_match.group(1).strip() if title_match else md_path.stem
+    # 提取标题：优先 YAML frontmatter，其次第一个 # 行，最后用文件名
+    yaml_title = re.search(r"^---\n.*?^title:\s*(.+?)\s*$.*?^---", md_text, re.MULTILINE | re.DOTALL)
+    if yaml_title:
+        title = yaml_title.group(1).strip()
+    else:
+        h1_match = re.search(r"^#\s+(.+)$", md_text, re.MULTILINE)
+        title = h1_match.group(1).strip() if h1_match else md_path.stem
+    # 去掉标题中可能残留的 Markdown 粗体标记
+    title = re.sub(r"\*+", "", title).strip()[:64]
 
-    # 提取摘要（正文前100字）
+    # 提取摘要（正文前120字，去掉 Markdown 符号）
     body = re.sub(r"^---\n.*?\n---\n", "", md_text, flags=re.DOTALL)
-    body = re.sub(r"[#\*\n`>]", "", body).strip()
-    digest = body[:100]
+    body = re.sub(r"[#\*\n`>\-\[\]!]", "", body).strip()
+    digest = body[:120]
 
     print(f"标题: {title}")
     print("上传图片中...")
@@ -780,18 +801,15 @@ def push_to_wx_draft(md_path: str):
     # 创建草稿
     print("创建草稿...")
     draft_url = f"https://api.weixin.qq.com/cgi-bin/draft/add?access_token={token}"
-    payload = {
-        "articles": [{
-            "title": title,
-            "author": "",
-            "digest": digest,
-            "content": html_content,
-            "content_source_url": "",
-            "thumb_media_id": thumb_media_id,
-            "need_open_comment": 0,
-            "only_fans_can_comment": 0,
-        }]
+    article = {
+        "title": title,
+        "digest": digest,
+        "content": html_content,
+        "thumb_media_id": thumb_media_id,
+        "need_open_comment": 0,
+        "only_fans_can_comment": 0,
     }
+    payload = {"articles": [article]}
     resp = requests.post(draft_url, json=payload, timeout=30)
     data = resp.json()
 
@@ -800,6 +818,174 @@ def push_to_wx_draft(md_path: str):
         print("请登录公众号后台 → 草稿箱 查看")
     else:
         raise RuntimeError(f"草稿创建失败: {data}")
+
+
+# ---------- Markdown → Word ----------
+
+def save_as_docx(title: str, author: str, pub_time: str, body_md: str, img_dir, out_path):
+    """将文章内容保存为 Word (.docx) 格式"""
+    from docx import Document
+    from docx.shared import Pt, Cm, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    doc = Document()
+
+    # 页面设置：A4，左右边距 2.5cm
+    section = doc.sections[0]
+    section.page_width  = int(21.0 * 914400 / 25.4)
+    section.page_height = int(29.7 * 914400 / 25.4)
+    for attr in ("left_margin","right_margin","top_margin","bottom_margin"):
+        setattr(section, attr, Cm(2.5))
+
+    # 默认段落样式：宋体 11pt，1.5倍行距
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    import lxml.etree as etree
+
+    def set_line_spacing(para, lines=1.5):
+        pPr = para._p.get_or_add_pPr()
+        spacing = OxmlElement("w:spacing")
+        spacing.set(qn("w:line"), str(int(lines * 240)))
+        spacing.set(qn("w:lineRule"), "auto")
+        pPr.append(spacing)
+
+    def add_paragraph(text, style=None, bold=False, size=11, color=None, align=None, indent=False):
+        p = doc.add_paragraph()
+        if style:
+            try: p.style = style
+            except: pass
+        run = p.add_run(text)
+        run.font.name = "宋体"
+        run.font.size = Pt(size)
+        run.bold = bold
+        if color:
+            run.font.color.rgb = RGBColor(*color)
+        if align:
+            p.alignment = align
+        if indent:
+            p.paragraph_format.first_line_indent = Cm(0.74)
+        set_line_spacing(p)
+        # 修复中文字体
+        rPr = run._r.get_or_add_rPr()
+        rFonts = OxmlElement("w:rFonts")
+        rFonts.set(qn("w:eastAsia"), "宋体")
+        rPr.insert(0, rFonts)
+        return p
+
+    # 标题
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(title)
+    run.font.name = "黑体"
+    run.font.size = Pt(18)
+    run.bold = True
+    rPr = run._r.get_or_add_rPr()
+    rFonts = OxmlElement("w:rFonts")
+    rFonts.set(qn("w:eastAsia"), "黑体")
+    rPr.insert(0, rFonts)
+    set_line_spacing(p, 1.5)
+
+    # 元信息
+    meta_parts = []
+    if author: meta_parts.append(f"公众号：{author}")
+    if pub_time: meta_parts.append(f"发布时间：{pub_time}")
+    if meta_parts:
+        mp = doc.add_paragraph()
+        mp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = mp.add_run("  |  ".join(meta_parts))
+        run.font.name = "宋体"
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+        set_line_spacing(mp, 1.2)
+
+    doc.add_paragraph()  # 空行分隔
+
+    # 解析正文 Markdown
+    for line in body_md.split("\n"):
+        line_s = line.strip()
+        if not line_s:
+            doc.add_paragraph()
+            continue
+
+        # 图片
+        img_match = re.match(r"!\[.*?\]\((images/[^\)]+)\)", line_s)
+        if img_match and img_dir:
+            img_rel = img_match.group(1)
+            img_path = Path(img_dir).parent / img_rel if img_dir else None
+            # img_dir 已经是 images/ 目录，所以直接拼文件名
+            img_file = Path(img_dir) / Path(img_rel).name
+            if img_file.exists():
+                try:
+                    p = doc.add_paragraph()
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = p.add_run()
+                    run.add_picture(str(img_file), width=Cm(14))
+                except Exception as e:
+                    add_paragraph(f"[图片: {img_file.name}]", color=(0x99,0x99,0x99))
+            continue
+
+        # 标题
+        if line_s.startswith("### "):
+            p = add_paragraph(line_s[4:], bold=True, size=12, color=(0x1a,0x1a,0x2e))
+        elif line_s.startswith("## "):
+            p = add_paragraph(line_s[3:], bold=True, size=13, color=(0x16,0x21,0x3e))
+        elif line_s.startswith("# "):
+            p = add_paragraph(line_s[2:], bold=True, size=15, color=(0x0f,0x3c,0x60))
+        # 引用
+        elif line_s.startswith("> "):
+            p = doc.add_paragraph()
+            p.paragraph_format.left_indent = Cm(1)
+            set_line_spacing(p)
+            run = p.add_run(line_s[2:])
+            run.font.name = "宋体"
+            run.font.size = Pt(11)
+            run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+            run.font.italic = True
+        # 列表
+        elif re.match(r"^[-\*] ", line_s):
+            p = doc.add_paragraph(style="List Bullet")
+            run = p.add_run(re.sub(r"\*\*(.*?)\*\*", r"\1", line_s[2:]))
+            run.font.name = "宋体"
+            run.font.size = Pt(11)
+            set_line_spacing(p)
+        elif re.match(r"^\d+\. ", line_s):
+            p = doc.add_paragraph(style="List Number")
+            run = p.add_run(re.sub(r"^\d+\.\s+", "", line_s))
+            run.font.name = "宋体"
+            run.font.size = Pt(11)
+            set_line_spacing(p)
+        # 分割线
+        elif line_s.startswith("---"):
+            p = doc.add_paragraph()
+            pPr = p._p.get_or_add_pPr()
+            pBdr = OxmlElement("w:pBdr")
+            bottom = OxmlElement("w:bottom")
+            bottom.set(qn("w:val"), "single")
+            bottom.set(qn("w:sz"), "6")
+            bottom.set(qn("w:color"), "CCCCCC")
+            pBdr.append(bottom)
+            pPr.append(pBdr)
+        # 普通段落（处理粗体内联）
+        else:
+            p = doc.add_paragraph()
+            p.paragraph_format.first_line_indent = Cm(0.74)
+            set_line_spacing(p)
+            # 解析 **粗体** 内联
+            parts = re.split(r"(\*\*.*?\*\*)", line_s)
+            for part in parts:
+                if part.startswith("**") and part.endswith("**"):
+                    run = p.add_run(part[2:-2])
+                    run.bold = True
+                else:
+                    run = p.add_run(part)
+                run.font.name = "宋体"
+                run.font.size = Pt(11)
+                rPr = run._r.get_or_add_rPr()
+                rFonts = OxmlElement("w:rFonts")
+                rFonts.set(qn("w:eastAsia"), "宋体")
+                rPr.insert(0, rFonts)
+
+    doc.save(str(out_path))
 
 
 # ---------- 主流程 ----------
@@ -842,10 +1028,16 @@ def save_article(url: str, output_dir: str = ".", download_images: bool = True):
 
     md_text = "\n".join(lines)
 
-    # 写文件
+    # 写 Markdown
     md_path = article_dir / "article.md"
     md_path.write_text(md_text, encoding="utf-8")
-    print(f"\n已保存: {md_path}")
+    print(f"已保存 MD : {md_path}")
+
+    # 写 Word
+    docx_path = article_dir / "article.docx"
+    save_as_docx(title, author, pub_time, body_md, img_dir, docx_path)
+    print(f"已保存 Word: {docx_path}")
+
     return str(md_path)
 
 
