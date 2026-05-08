@@ -631,6 +631,177 @@ theme: bytedance
 """
 
 
+# ---------- 微信草稿箱推送 ----------
+
+import json
+import mimetypes
+
+def wx_get_access_token() -> str:
+    """获取微信 access_token"""
+    appid = os.getenv("WX_APPID", "")
+    secret = os.getenv("WX_APPSECRET", "")
+    if not appid or not secret:
+        raise ValueError("请在 .env 中配置 WX_APPID 和 WX_APPSECRET")
+
+    url = "https://api.weixin.qq.com/cgi-bin/token"
+    resp = requests.get(url, params={
+        "grant_type": "client_credential",
+        "appid": appid,
+        "secret": secret,
+    }, timeout=15)
+    data = resp.json()
+    if "access_token" not in data:
+        raise RuntimeError(f"获取 access_token 失败: {data}")
+    print(f"  access_token 获取成功（有效期 {data.get('expires_in', 7200)} 秒）")
+    return data["access_token"]
+
+
+def wx_upload_image(token: str, img_path: str) -> str:
+    """上传图片到微信服务器，返回可用于文章内容的 URL"""
+    url = f"https://api.weixin.qq.com/cgi-bin/media/uploadimg?access_token={token}"
+    mime = mimetypes.guess_type(img_path)[0] or "image/jpeg"
+    with open(img_path, "rb") as f:
+        resp = requests.post(url, files={"media": (Path(img_path).name, f, mime)}, timeout=30)
+    data = resp.json()
+    if "url" not in data:
+        raise RuntimeError(f"图片上传失败 {Path(img_path).name}: {data}")
+    return data["url"]
+
+
+def wx_upload_thumb(token: str, img_path: str) -> str:
+    """上传封面图（永久素材），返回 media_id"""
+    url = f"https://api.weixin.qq.com/cgi-bin/material/add_material?access_token={token}&type=image"
+    mime = mimetypes.guess_type(img_path)[0] or "image/jpeg"
+    with open(img_path, "rb") as f:
+        resp = requests.post(url, files={"media": (Path(img_path).name, f, mime)}, timeout=30)
+    data = resp.json()
+    if "media_id" not in data:
+        raise RuntimeError(f"封面上传失败: {data}")
+    return data["media_id"]
+
+
+def md_to_wx_html(md_text: str, article_dir: Path, token: str) -> tuple[str, str]:
+    """
+    将 Markdown 转为微信可用的 HTML，同时上传本地图片。
+    返回 (html内容, 封面图media_id)
+    """
+    import markdown
+    # 去掉 YAML 头部（wewrite 格式）
+    md_text = re.sub(r"^---\n.*?\n---\n", "", md_text, flags=re.DOTALL).strip()
+
+    # 先处理本地图片：上传并替换路径
+    img_dir = article_dir / "images"
+    thumb_media_id = ""
+    first_img = True
+
+    def replace_img(match):
+        nonlocal thumb_media_id, first_img
+        alt = match.group(1)
+        rel_path = match.group(2)
+
+        if rel_path.startswith("http"):
+            return match.group(0)  # 远程图片保持不变
+
+        abs_path = article_dir / rel_path
+        if not abs_path.exists():
+            return match.group(0)
+
+        try:
+            wx_url = wx_upload_image(token, str(abs_path))
+            print(f"    已上传: {abs_path.name} → {wx_url[:50]}...")
+
+            # 第一张图作为封面
+            if first_img:
+                first_img = False
+                try:
+                    thumb_media_id = wx_upload_thumb(token, str(abs_path))
+                    print(f"    封面 media_id: {thumb_media_id[:20]}...")
+                except Exception as e:
+                    print(f"    [警告] 封面上传失败: {e}")
+
+            return f"![{alt}]({wx_url})"
+        except Exception as e:
+            print(f"    [警告] 图片上传失败 {abs_path.name}: {e}")
+            return match.group(0)
+
+    md_text = re.sub(r"!\[(.*?)\]\((.*?)\)", replace_img, md_text)
+
+    # Markdown → HTML
+    html_body = markdown.markdown(
+        md_text,
+        extensions=["tables", "fenced_code", "nl2br"]
+    )
+
+    # 微信文章样式包装
+    html = f"""<div style="font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif; font-size: 16px; line-height: 1.8; color: #333; padding: 0 4px;">
+{html_body}
+</div>"""
+
+    # 修正图片标签为微信格式
+    html = re.sub(
+        r'<img([^>]*?)src="(https://mmbiz[^"]+)"([^>]*?)>',
+        r'<img\1src="\2"\3 style="max-width:100%;display:block;margin:16px auto;">',
+        html
+    )
+
+    return html, thumb_media_id
+
+
+def push_to_wx_draft(md_path: str):
+    """将 Markdown 文件推送到微信公众号草稿箱"""
+    md_path = Path(md_path)
+    article_dir = md_path.parent
+
+    print(f"\n正在推送到微信草稿箱: {md_path.name}")
+    print("获取 access_token...")
+    token = wx_get_access_token()
+
+    # 读取 Markdown
+    md_text = md_path.read_text(encoding="utf-8")
+
+    # 提取标题（第一个 # 行）
+    title_match = re.search(r"^#\s+(.+)$", md_text, re.MULTILINE)
+    title = title_match.group(1).strip() if title_match else md_path.stem
+
+    # 提取摘要（正文前100字）
+    body = re.sub(r"^---\n.*?\n---\n", "", md_text, flags=re.DOTALL)
+    body = re.sub(r"[#\*\n`>]", "", body).strip()
+    digest = body[:100]
+
+    print(f"标题: {title}")
+    print("上传图片中...")
+
+    # 转换为微信 HTML
+    html_content, thumb_media_id = md_to_wx_html(md_text, article_dir, token)
+
+    if not thumb_media_id:
+        print("  [警告] 未找到封面图，使用空封面（草稿箱中可手动设置）")
+
+    # 创建草稿
+    print("创建草稿...")
+    draft_url = f"https://api.weixin.qq.com/cgi-bin/draft/add?access_token={token}"
+    payload = {
+        "articles": [{
+            "title": title,
+            "author": "",
+            "digest": digest,
+            "content": html_content,
+            "content_source_url": "",
+            "thumb_media_id": thumb_media_id,
+            "need_open_comment": 0,
+            "only_fans_can_comment": 0,
+        }]
+    }
+    resp = requests.post(draft_url, json=payload, timeout=30)
+    data = resp.json()
+
+    if data.get("errcode", 0) == 0 and "media_id" in data:
+        print(f"\n✅ 推送成功！草稿 media_id: {data['media_id']}")
+        print("请登录公众号后台 → 草稿箱 查看")
+    else:
+        raise RuntimeError(f"草稿创建失败: {data}")
+
+
 # ---------- 主流程 ----------
 
 def save_article(url: str, output_dir: str = ".", download_images: bool = True):
@@ -687,7 +858,16 @@ def main():
     parser.add_argument("-t", "--topic", default="", help="主题文件夹名称/新文章主题")
     parser.add_argument("--no-images", action="store_true", help="不下载图片，保留原始 URL")
     parser.add_argument("--merge", help="合并指定目录下的多篇文章为新公众号文章")
+    parser.add_argument("--push", help="将指定 Markdown 文件推送到微信草稿箱")
     args = parser.parse_args()
+
+    # 推送到微信草稿箱
+    if args.push:
+        try:
+            push_to_wx_draft(args.push)
+        except Exception as e:
+            sys.exit(f"推送失败: {e}")
+        return
 
     # 处理文章合并功能
     if args.merge:
