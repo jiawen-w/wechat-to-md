@@ -2,19 +2,20 @@
 
 微信公众号文章**抓取 + AI 智能重组**工具。
 
-- 把任意公众号文章保存为本地 Markdown（含图片）
-- 把多篇文章喂给 AI，一键重组成一篇新的公众号文章（会读取原来的图片信息，新的文章也会包含图片）
-- 支持模仿量子位、极客公园、机器之心等 8 种自媒体大 V 风格
-- 输出兼容 [wewrite](https://github.com/oaker-io/wewrite） 字节跳动排版主题
+- 把任意公众号文章保存为本地 **Markdown + Word** 双格式（含图片）
+- 把多篇文章喂给 AI，一键重组成一篇新的公众号文章
+- 支持模仿量子位、极客公园、机器之心等 8 种自媒体大 V 风格，内置去 AI 味写作规范
+- 输出兼容 [wewrite](https://github.com/oaker-io/wewrite) 字节跳动排版主题
 
 ---
 
 ## 功能一览
 
-### 1. 抓取文章 → Markdown
+### 1. 抓取文章 → Markdown + Word
 
 - 提取标题、公众号名、发布时间、正文
 - 自动下载所有图片到本地 `images/` 目录（支持微信懒加载 `data-src`）
+- 同时生成 `article.md` 和 `article.docx`，图片全部嵌入 Word
 - 支持一次输入多个链接，批量保存
 - 按主题名称统一归档到指定文件夹
 - 失败链接自动汇总提示
@@ -28,16 +29,24 @@
 
 ### 3. 自媒体风格库（8 种）
 
-| 编号 | 风格 | 特点 |
-|------|------|------|
-| 0 | 默认 | 通用公众号风格 |
-| 1 | 量子位 | 科技感，专业严谨 |
-| 2 | 极客公园 | 用 Why 追问，有非共识判断 |
-| 3 | 机器之心 | 论文级深度，技术→商业→生态推演 |
-| 4 | 李继刚 | Lisp 哲学风，语言极致凝练 |
-| 5 | 秋芝 2046 | 创业投资视角，关注商业本质 |
-| 6 | 数字生命卡兹克 | 硬核技术解读，深入浅出 |
-| 7 | 赛文乔伊 | 产品思维，用户体验视角 |
+基于真实写作风格调研，每种风格包含句式特征、开头方式、专属禁止清单。
+
+| 编号 | 风格 | 核心特点 |
+|------|------|---------|
+| 0 | 默认人味风格 | 口语化、有个人立场，不像 AI |
+| 1 | 量子位 | 直接高潮开头，短平快，动态动词驱动 |
+| 2 | 极客公园 | 人物场景式开头，非虚构叙事，杂志深度感 |
+| 3 | 机器之心 | 摘要式开头，学术严谨，保留英文术语 |
+| 4 | 李继刚 | 极致压缩，字少意深，古典汉语感，禅意犀利 |
+| 5 | 秋芝 2046 | 痛点开头，手把手陪伴感，跨界视角 |
+| 6 | 数字生命卡兹克 | 真实聊天感，具体场景切入，完整禁止清单 |
+| 7 | 赛文乔伊 | 用户行为→产品逻辑→规律，平实有温度 |
+
+**所有风格共用「去 AI 味」铁律：**
+- 禁止结构词：`首先 / 其次 / 最后 / 综上所述 / 总而言之`
+- 禁止套话：`赋能 / 抓手 / 闭环 / 落地 / 深度 / 维度`
+- 禁止万能开头：`在当今……的时代` / `随着……的发展`
+- 禁止强行结尾：`未来可期` / `让我们一起……` / 正能量升华
 
 ### 4. 字节跳动风格排版
 
@@ -53,19 +62,23 @@
 ## 安装依赖
 
 ```bash
-pip install requests beautifulsoup4
+pip install requests beautifulsoup4 openai python-dotenv
 ```
 
-如需使用 AI 重组功能，还需：
+Word 导出依赖系统安装的 [pandoc](https://pandoc.org/installing.html)：
 
 ```bash
-pip install openai python-dotenv
+# macOS
+brew install pandoc
+
+# Ubuntu / Debian
+sudo apt install pandoc
 ```
 
-并在项目根目录创建 `.env` 文件：
+如需使用 AI 重组功能，在项目根目录创建 `.env` 文件：
 
 ```env
-DOUBAN_API_KEY=你的豆包API密钥
+DOUBAN_API_KEY=你的豆包 API 密钥
 DOUBAN_API_BASE=https://ark.cn-beijing.volces.com/api/coding/v1
 ```
 
@@ -148,12 +161,14 @@ python wechat_to_md.py --merge ./大卫芬奇 --topic "芬奇的视觉语言"
 输出目录/
 └── 主题名称/
     ├── 文章标题一/
-    │   ├── article.md
+    │   ├── article.md       ← Markdown 格式
+    │   ├── article.docx     ← Word 格式（图片嵌入）
     │   └── images/
     ├── 文章标题二/
     │   ├── article.md
+    │   ├── article.docx
     │   └── images/
-    └── 新合并的文章.md       ← AI 重组输出（含 wewrite 头部）
+    └── 新合并的文章.md      ← AI 重组输出（含 wewrite 头部）
 ```
 
 ---
@@ -163,7 +178,7 @@ python wechat_to_md.py --merge ./大卫芬奇 --topic "芬奇的视觉语言"
 - 微信文章链接有时效性，建议尽快保存
 - 需要登录才能访问的文章无法抓取
 - AI 重组功能需要豆包 API，图片分析会消耗额外 token
-- 生成的 wewrite 格式文章可直接粘贴到 [wewrite.app]([https://wewrite.app](https://github.com/oaker-io/wewrite)) 使用
+- 生成的 wewrite 格式文章可直接粘贴到 [wewrite](https://github.com/oaker-io/wewrite) 使用
 
 ---
 
