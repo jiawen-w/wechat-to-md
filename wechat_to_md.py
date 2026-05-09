@@ -981,172 +981,44 @@ def push_to_wx_draft(md_path: str):
         raise RuntimeError(f"草稿创建失败: {data}")
 
 
-# ---------- Markdown → Word ----------
+# ---------- Markdown → Word （pandoc） ----------
 
 def save_as_docx(title: str, author: str, pub_time: str, body_md: str, img_dir, out_path):
-    """将文章内容保存为 Word (.docx) 格式"""
-    from docx import Document
-    from docx.shared import Pt, Cm, RGBColor
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    """用 pandoc 将 Markdown 转为 Word (.docx)，图片自动嵌入"""
+    import subprocess
+    import tempfile
 
-    doc = Document()
+    # 组装完整 MD（含元信息）
+    lines = [f"# {title}", ""]
+    if author:   lines += [f"**公众号**: {author}", ""]
+    if pub_time: lines += [f"**发布时间**: {pub_time}", ""]
+    lines += ["---", "", body_md]
+    full_md = "\n".join(lines)
 
-    # 页面设置：A4，左右边距 2.5cm
-    section = doc.sections[0]
-    section.page_width  = int(21.0 * 914400 / 25.4)
-    section.page_height = int(29.7 * 914400 / 25.4)
-    for attr in ("left_margin","right_margin","top_margin","bottom_margin"):
-        setattr(section, attr, Cm(2.5))
+    # 写临时 MD 文件，放在 img_dir 的父目录（保证图片相对路径可找到）
+    work_dir = Path(img_dir).parent if img_dir else Path(out_path).parent
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", suffix=".md",
+        dir=work_dir, delete=False
+    ) as tmp:
+        tmp.write(full_md)
+        tmp_path = tmp.name
 
-    # 默认段落样式：宋体 11pt，1.5倍行距
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    import lxml.etree as etree
-
-    def set_line_spacing(para, lines=1.5):
-        pPr = para._p.get_or_add_pPr()
-        spacing = OxmlElement("w:spacing")
-        spacing.set(qn("w:line"), str(int(lines * 240)))
-        spacing.set(qn("w:lineRule"), "auto")
-        pPr.append(spacing)
-
-    def add_paragraph(text, style=None, bold=False, size=11, color=None, align=None, indent=False):
-        p = doc.add_paragraph()
-        if style:
-            try: p.style = style
-            except: pass
-        run = p.add_run(text)
-        run.font.name = "宋体"
-        run.font.size = Pt(size)
-        run.bold = bold
-        if color:
-            run.font.color.rgb = RGBColor(*color)
-        if align:
-            p.alignment = align
-        if indent:
-            p.paragraph_format.first_line_indent = Cm(0.74)
-        set_line_spacing(p)
-        # 修复中文字体
-        rPr = run._r.get_or_add_rPr()
-        rFonts = OxmlElement("w:rFonts")
-        rFonts.set(qn("w:eastAsia"), "宋体")
-        rPr.insert(0, rFonts)
-        return p
-
-    # 标题
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run(title)
-    run.font.name = "黑体"
-    run.font.size = Pt(18)
-    run.bold = True
-    rPr = run._r.get_or_add_rPr()
-    rFonts = OxmlElement("w:rFonts")
-    rFonts.set(qn("w:eastAsia"), "黑体")
-    rPr.insert(0, rFonts)
-    set_line_spacing(p, 1.5)
-
-    # 元信息
-    meta_parts = []
-    if author: meta_parts.append(f"公众号：{author}")
-    if pub_time: meta_parts.append(f"发布时间：{pub_time}")
-    if meta_parts:
-        mp = doc.add_paragraph()
-        mp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = mp.add_run("  |  ".join(meta_parts))
-        run.font.name = "宋体"
-        run.font.size = Pt(9)
-        run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
-        set_line_spacing(mp, 1.2)
-
-    doc.add_paragraph()  # 空行分隔
-
-    # 解析正文 Markdown
-    for line in body_md.split("\n"):
-        line_s = line.strip()
-        if not line_s:
-            doc.add_paragraph()
-            continue
-
-        # 图片
-        img_match = re.match(r"!\[.*?\]\((images/[^\)]+)\)", line_s)
-        if img_match and img_dir:
-            img_rel = img_match.group(1)
-            img_path = Path(img_dir).parent / img_rel if img_dir else None
-            # img_dir 已经是 images/ 目录，所以直接拼文件名
-            img_file = Path(img_dir) / Path(img_rel).name
-            if img_file.exists():
-                try:
-                    p = doc.add_paragraph()
-                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    run = p.add_run()
-                    run.add_picture(str(img_file), width=Cm(14))
-                except Exception as e:
-                    add_paragraph(f"[图片: {img_file.name}]", color=(0x99,0x99,0x99))
-            continue
-
-        # 标题
-        if line_s.startswith("### "):
-            p = add_paragraph(line_s[4:], bold=True, size=12, color=(0x1a,0x1a,0x2e))
-        elif line_s.startswith("## "):
-            p = add_paragraph(line_s[3:], bold=True, size=13, color=(0x16,0x21,0x3e))
-        elif line_s.startswith("# "):
-            p = add_paragraph(line_s[2:], bold=True, size=15, color=(0x0f,0x3c,0x60))
-        # 引用
-        elif line_s.startswith("> "):
-            p = doc.add_paragraph()
-            p.paragraph_format.left_indent = Cm(1)
-            set_line_spacing(p)
-            run = p.add_run(line_s[2:])
-            run.font.name = "宋体"
-            run.font.size = Pt(11)
-            run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
-            run.font.italic = True
-        # 列表
-        elif re.match(r"^[-\*] ", line_s):
-            p = doc.add_paragraph(style="List Bullet")
-            run = p.add_run(re.sub(r"\*\*(.*?)\*\*", r"\1", line_s[2:]))
-            run.font.name = "宋体"
-            run.font.size = Pt(11)
-            set_line_spacing(p)
-        elif re.match(r"^\d+\. ", line_s):
-            p = doc.add_paragraph(style="List Number")
-            run = p.add_run(re.sub(r"^\d+\.\s+", "", line_s))
-            run.font.name = "宋体"
-            run.font.size = Pt(11)
-            set_line_spacing(p)
-        # 分割线
-        elif line_s.startswith("---"):
-            p = doc.add_paragraph()
-            pPr = p._p.get_or_add_pPr()
-            pBdr = OxmlElement("w:pBdr")
-            bottom = OxmlElement("w:bottom")
-            bottom.set(qn("w:val"), "single")
-            bottom.set(qn("w:sz"), "6")
-            bottom.set(qn("w:color"), "CCCCCC")
-            pBdr.append(bottom)
-            pPr.append(pBdr)
-        # 普通段落（处理粗体内联）
-        else:
-            p = doc.add_paragraph()
-            p.paragraph_format.first_line_indent = Cm(0.74)
-            set_line_spacing(p)
-            # 解析 **粗体** 内联
-            parts = re.split(r"(\*\*.*?\*\*)", line_s)
-            for part in parts:
-                if part.startswith("**") and part.endswith("**"):
-                    run = p.add_run(part[2:-2])
-                    run.bold = True
-                else:
-                    run = p.add_run(part)
-                run.font.name = "宋体"
-                run.font.size = Pt(11)
-                rPr = run._r.get_or_add_rPr()
-                rFonts = OxmlElement("w:rFonts")
-                rFonts.set(qn("w:eastAsia"), "宋体")
-                rPr.insert(0, rFonts)
-
-    doc.save(str(out_path))
+    try:
+        result = subprocess.run(
+            [
+                "pandoc", tmp_path,
+                "--from", "markdown",
+                "--to", "docx",
+                "--resource-path", str(work_dir),
+                "--output", str(out_path),
+            ],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"pandoc 错误: {result.stderr}")
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 # ---------- 主流程 ----------
@@ -1211,16 +1083,8 @@ def main():
     parser.add_argument("-t", "--topic", default="", help="主题文件夹名称/新文章主题")
     parser.add_argument("--no-images", action="store_true", help="不下载图片，保留原始 URL")
     parser.add_argument("--merge", help="合并指定目录下的多篇文章为新公众号文章")
-    parser.add_argument("--push", help="将指定 Markdown 文件推送到微信草稿箱")
+    # parser.add_argument("--push", help="将指定 Markdown 文件推送到微信草稿箱")  # 暂时关闭
     args = parser.parse_args()
-
-    # 推送到微信草稿箱
-    if args.push:
-        try:
-            push_to_wx_draft(args.push)
-        except Exception as e:
-            sys.exit(f"推送失败: {e}")
-        return
 
     # 处理文章合并功能
     if args.merge:
