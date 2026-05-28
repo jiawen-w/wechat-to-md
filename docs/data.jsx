@@ -284,9 +284,25 @@ const FEATURES = [
   },
 ];
 
+const HERO_STATS = [
+  { num: "8",    label: "自媒体大 V 写作风格" },
+  { num: "5 min", label: "从选题到草稿箱" },
+  { num: "36",   label: "条去 AI 化写作铁律" },
+  { num: "100%", label: "本地运行，凭证不出本机" },
+];
+
+const NAISHI_CALLOUTS = [
+  { title: "编号标题",       desc: "H2 自动生成紫色圆形数字徽章，H3 同色下划线，层级一眼可辨。" },
+  { title: "紫色加粗 + 高亮", desc: "所有 <strong> 染成主色，让重点在长文里跳出来。" },
+  { title: "引用 / 提示卡",   desc: ":::quote / :::callout 容器自动转成淡紫色卡片块，移动端不挤。" },
+  { title: "顶部色带 + 底部署名", desc: "整张文章包在圆角卡片里，顶有渐变色带，底有作者签名。" },
+];
+
 window.WRITING_STYLES = WRITING_STYLES;
 window.PROCESS_STEPS = PROCESS_STEPS;
 window.DE_AI_RULES = DE_AI_RULES;
 window.FAQS = FAQS;
 window.FEATURES = FEATURES;
 window.SHARED_TOPIC = SHARED_TOPIC;
+window.HERO_STATS = HERO_STATS;
+window.NAISHI_CALLOUTS = NAISHI_CALLOUTS;
