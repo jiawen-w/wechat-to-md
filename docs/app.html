@@ -408,7 +408,11 @@ button { cursor: pointer; font-family: inherit; }
 // ── 配置 ──────────────────────────────────────────────────────────────────────
 // 后端 URL：优先读 URL 参数 ?backend=...，否则用 Railway 部署地址
 const params = new URLSearchParams(location.search);
-const BACKEND = (params.get('backend') || 'RAILWAY_URL_PLACEHOLDER').replace(/\/$/, '');
+// 本地运行时自动连接同端口后端；GitHub Pages 上需要填入 Railway 地址
+const _autoBackend = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ? `http://${location.hostname}:${location.port || 8000}`
+  : 'RAILWAY_BACKEND_URL';   // ← 部署后替换为 Railway 给的地址
+const BACKEND = (params.get('backend') || _autoBackend).replace(/\/$/, '');
 
 // ── 风格数据（与 data.jsx 保持一致）──────────────────────────────────────────
 const STYLES = [
