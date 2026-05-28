@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>公众号炼金术 · 开始炼金</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #0b0b0b;
+  --ink-2: #444;
+  --ink-3: #888;
+  --paper: #faf8f4;
+  --white: #fff;
+  --orange: #ff5a1f;
+  --yellow: #ffd60a;
+  --purple: #6d4aff;
+  --purple-light: #ede9ff;
+  --green: #c8f4a6;
+  --border: #e0ddd8;
+  --shadow: 3px 3px 0 var(--ink);
+  --radius: 6px;
+  --font-sans: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+html { font-size: 16px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+a { color: inherit; }
+button { cursor: pointer; font-family: inherit; }
+
+/* ── Nav ── */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--white);
+  border-bottom: 2px solid var(--ink);
+  padding: 0 24px;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; font-weight: 700; font-size: 15px;
+}
+.nav-logo-mark {
+  width: 32px; height: 32px;
+  background: var(--ink); color: var(--yellow);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 16px; border-radius: 4px;
+}
+.nav-back {
+  font-size: 13px; color: var(--ink-2); text-decoration: none;
+  display: flex; align-items: center; gap: 4px;
+}
+.nav-back:hover { color: var(--ink); }
+
+/* ── Shell ── */
+.shell { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+/* ── Hero strip ── */
+.app-hero {
+  background: var(--ink); color: var(--white);
+  padding: 32px 0 28px;
+}
+.app-hero-inner {
+  max-width: 860px; margin: 0 auto; padding: 0 24px;
+  display: flex; align-items: center; gap: 20px;
+}
+.app-hero h1 { font-size: clamp(22px,3vw,32px); font-weight: 900; line-height: 1.2; }
+.app-hero h1 span { color: var(--yellow); }
+.app-hero p { color: rgba(255,255,255,0.65); font-size: 14px; margin-top: 6px; }
+.app-hero-badge {
+  flex-shrink: 0;
+  background: var(--yellow); color: var(--ink);
+  font-weight: 800; font-size: 12px; padding: 6px 12px;
+  border-radius: 4px; letter-spacing: 0.05em;
+}
+
+/* ── Main layout ── */
+.app-body { padding: 40px 0 80px; }
+.step-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  color: var(--orange); text-transform: uppercase; margin-bottom: 10px;
+}
+.step-title {
+  font-size: 20px; font-weight: 800; margin-bottom: 20px;
+}
+.card {
+  background: var(--white);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+/* ── URL inputs ── */
+.url-list { display: flex; flex-direction: column; gap: 10px; }
+.url-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.url-input {
+  flex: 1;
+  height: 44px; padding: 0 14px;
+  border: 2px solid var(--border); border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 13px;
+  background: var(--paper); color: var(--ink);
+  transition: border-color 0.15s;
+}
+.url-input:focus { outline: none; border-color: var(--purple); }
+.url-input::placeholder { color: var(--ink-3); }
+.url-remove {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border); border-radius: 50%;
+  background: none; color: var(--ink-3); font-size: 18px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s;
+}
+.url-remove:hover { border-color: #f00; color: #f00; }
+.url-add {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px;
+  background: none; border: 2px dashed var(--border);
+  border-radius: var(--radius); padding: 8px 14px;
+  font-size: 13px; color: var(--ink-3); font-weight: 600;
+  transition: all 0.15s;
+}
+.url-add:hover { border-color: var(--purple); color: var(--purple); }
+
+/* ── Style grid ── */
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.style-btn {
+  position: relative;
+  text-align: left;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--paper);
+  transition: all 0.15s;
+}
+.style-btn:hover { border-color: var(--ink); }
+.style-btn.active {
+  border-color: var(--purple);
+  background: var(--purple-light);
+  box-shadow: var(--shadow);
+}
+.style-btn.active::after {
+  content: '✓';
+  position: absolute; top: 8px; right: 10px;
+  font-size: 12px; font-weight: 800; color: var(--purple);
+}
+.style-code {
+  display: inline-block;
+  font-size: 11px; font-weight: 700; font-family: var(--font-mono);
+  padding: 2px 6px; border-radius: 3px; margin-bottom: 6px;
+  color: var(--white);
+}
+.style-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.style-desc { font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+
+/* ── Topic input ── */
+.topic-input {
+  width: 100%; height: 44px; padding: 0 14px;
+  border: 2px solid var(--border); border-radius: var(--radius);
+  font-family: var(--font-sans); font-size: 14px;
+  background: var(--paper); color: var(--ink);
+  transition: border-color 0.15s;
+}
+.topic-input:focus { outline: none; border-color: var(--purple); }
+.topic-hint { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+
+/* ── Run button ── */
+.run-btn {
+  width: 100%; height: 56px;
+  background: var(--ink); color: var(--yellow);
+  border: 2px solid var(--ink); border-radius: var(--radius);
+  font-size: 16px; font-weight: 800; letter-spacing: 0.04em;
+  box-shadow: var(--shadow);
+  transition: all 0.15s;
+  margin-top: 8px;
+}
+.run-btn:hover:not(:disabled) {
+  background: var(--purple); border-color: var(--purple);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.run-btn:disabled {
+  opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: var(--shadow);
+}
+
+/* ── Progress terminal ── */
+.terminal-wrap { display: none; margin-bottom: 20px; }
+.terminal-wrap.visible { display: block; }
+.terminal {
+  background: #0d1117;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.terminal-bar {
+  background: #1c2128; padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid #30363d;
+}
+.terminal-dots span {
+  width: 12px; height: 12px; border-radius: 50%;
+  display: inline-block; margin-right: 4px;
+}
+.terminal-dots span:nth-child(1) { background: #ff5f57; }
+.terminal-dots span:nth-child(2) { background: #febc2e; }
+.terminal-dots span:nth-child(3) { background: #28c840; }
+.terminal-title { font-size: 12px; color: #8b949e; font-family: var(--font-mono); }
+.terminal-body {
+  padding: 16px 20px;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+  color: #e6edf3; min-height: 120px; max-height: 360px;
+  overflow-y: auto;
+}
+.log-line { display: block; }
+.log-ok { color: #3fb950; }
+.log-warn { color: #f0883e; }
+.log-err { color: #ff7b72; }
+.log-dim { color: #8b949e; }
+.blink { animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Result ── */
+.result-wrap { display: none; }
+.result-wrap.visible { display: block; }
+.result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  margin-bottom: 16px;
+}
+.result-meta { font-size: 14px; color: var(--ink-2); }
+.result-meta strong { color: var(--ink); }
+.result-actions { display: flex; gap: 8px; }
+.btn-copy, .btn-dl {
+  height: 38px; padding: 0 16px;
+  border: 2px solid var(--ink); border-radius: var(--radius);
+  font-size: 13px; font-weight: 700;
+  transition: all 0.15s;
+}
+.btn-copy {
+  background: var(--yellow); color: var(--ink);
+}
+.btn-copy:hover { box-shadow: var(--shadow); transform: translate(-1px,-1px); }
+.btn-dl {
+  background: var(--white); color: var(--ink);
+}
+.btn-dl:hover { background: var(--paper); }
+.result-box {
+  background: var(--white);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 24px;
+  font-family: var(--font-mono); font-size: 13px;
+  line-height: 1.75; color: var(--ink-2);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 560px; overflow-y: auto;
+}
+.result-box strong { color: var(--ink); }
+
+/* ── Error state ── */
+.error-box {
+  background: #fff5f5; border: 2px solid #f00;
+  border-radius: var(--radius); padding: 16px 20px;
+  font-size: 14px; color: #c00;
+  display: none; margin-bottom: 16px;
+}
+.error-box.visible { display: block; }
+
+/* ── Reset link ── */
+.reset-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 20px;
+  background: none; border: none;
+  font-size: 13px; color: var(--ink-3); text-decoration: underline;
+}
+.reset-link:hover { color: var(--ink); }
+
+/* ── Footer ── */
+.footer {
+  border-top: 2px solid var(--ink);
+  padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px;
+  font-size: 12px; color: var(--ink-3);
+  max-width: 100%;
+}
+.footer a { color: var(--ink-3); text-decoration: none; margin-left: 14px; }
+.footer a:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <span class="nav-logo-mark">炼</span>
+    <span>公众号炼金术</span>
+  </a>
+  <a href="index.html" class="nav-back">← 回首页</a>
+</nav>
+
+<!-- Hero -->
+<div class="app-hero">
+  <div class="app-hero-inner">
+    <div>
+      <h1>把爆款<span>炼</span>出来。</h1>
+      <p>粘贴公众号文章链接 → 选择写作风格 → 一键生成新文章</p>
+    </div>
+    <div class="app-hero-badge">ALCHEMY · v0.3</div>
+  </div>
+</div>
+
+<!-- App Body -->
+<div class="app-body">
+  <div class="shell">
+
+    <!-- Step 1: URLs -->
+    <div class="card">
+      <div class="step-label">STEP 01 · FETCH</div>
+      <div class="step-title">粘贴公众号文章链接</div>
+      <div class="url-list" id="url-list">
+        <div class="url-row">
+          <input class="url-input" type="url" placeholder="https://mp.weixin.qq.com/s/..." />
+        </div>
+      </div>
+      <button class="url-add" id="url-add-btn">
+        <span style="font-size:18px">+</span> 再加一篇（最多 5 篇）
+      </button>
+    </div>
+
+    <!-- Step 2: Style -->
+    <div class="card">
+      <div class="step-label">STEP 02 · STYLE</div>
+      <div class="step-title">选择写作风格</div>
+      <div class="style-grid" id="style-grid">
+        <!-- 由 JS 渲染 -->
+      </div>
+    </div>
+
+    <!-- Step 3: Topic -->
+    <div class="card">
+      <div class="step-label">STEP 03 · TOPIC</div>
+      <div class="step-title">新文章主题 <span style="font-weight:400;color:#888;font-size:16px">（可选）</span></div>
+      <input class="topic-input" id="topic-input"
+        placeholder="例如：GPT-5 发布对内容创作者的影响" />
+      <p class="topic-hint">不填则由 AI 自动从素材中提炼主题</p>
+    </div>
+
+    <!-- Run button -->
+    <button class="run-btn" id="run-btn">⚗ 开始炼金</button>
+
+    <!-- Error -->
+    <div class="error-box" id="error-box"></div>
+
+    <!-- Progress terminal -->
+    <div class="terminal-wrap" id="terminal-wrap">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="terminal-dots"><span></span><span></span><span></span></div>
+          <div class="terminal-title">alchemy · 实时日志</div>
+        </div>
+        <div class="terminal-body" id="terminal-body"></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-wrap" id="result-wrap">
+      <div class="result-header">
+        <div class="result-meta" id="result-meta"></div>
+        <div class="result-actions">
+          <button class="btn-copy" id="btn-copy">复制 Markdown</button>
+          <button class="btn-dl" id="btn-dl">下载 .md</button>
+        </div>
+      </div>
+      <pre class="result-box" id="result-box"></pre>
+      <button class="reset-link" id="reset-btn">← 重新开始</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <span>公众号炼金术 · MIT License</span>
+  <div>
+    <a href="https://github.com/jiawen-w/wechat-to-md" target="_blank">GitHub</a>
+    <a href="index.html">首页</a>
+  </div>
+</footer>
+
+<script>
+// ── 配置 ──────────────────────────────────────────────────────────────────────
+// 后端 URL：优先读 URL 参数 ?backend=...，否则用 Railway 部署地址
+const params = new URLSearchParams(location.search);
+const BACKEND = (params.get('backend') || 'RAILWAY_URL_PLACEHOLDER').replace(/\/$/, '');
+
+// ── 风格数据（与 data.jsx 保持一致）──────────────────────────────────────────
+const STYLES = [
+  { key: 'default',      code: '01', name: '默认人味',   color: '#FF5A1F', desc: '口语化、有温度、有个人立场' },
+  { key: 'liangziwei',   code: '02', name: '量子位',     color: '#0B0B0B', desc: '科技快讯，短平快，惊人数字开场' },
+  { key: 'jikegongyuan', code: '03', name: '极客公园',   color: '#6D4AFF', desc: '人物场景开头，杂志特稿叙事' },
+  { key: 'jiqizhixin',   code: '04', name: '机器之心',   color: '#1A73E8', desc: '学术克制，技术术语精确' },
+  { key: 'lijigang',     code: '05', name: '李继刚',     color: '#2D9C5F', desc: '哲思禅意，字少意深，箴言体' },
+  { key: 'qiuzhi',       code: '06', name: '秋芝 2046',  color: '#E91E8C', desc: '亲切实用，手把手陪伴感' },
+  { key: 'kazike',       code: '07', name: '数字生命卡兹克', color: '#FF9900', desc: '真实聊天感，从具体场景切入' },
+  { key: 'saiwen',       code: '08', name: '赛文乔伊',   color: '#FF5A1F', desc: '产品 + 人文，从使用细节立论' },
+];
+
+// ── 状态 ─────────────────────────────────────────────────────────────────────
+let selectedStyle = 'default';
+let currentResult = null;
+
+// ── 渲染风格卡片 ──────────────────────────────────────────────────────────────
+function renderStyles() {
+  const grid = document.getElementById('style-grid');
+  grid.innerHTML = STYLES.map(s => `
+    <button class="style-btn ${s.key === selectedStyle ? 'active' : ''}"
+            data-key="${s.key}" onclick="selectStyle('${s.key}')">
+      <div class="style-code" style="background:${s.color}">${s.code}</div>
+      <div class="style-name">${s.name}</div>
+      <div class="style-desc">${s.desc}</div>
+    </button>
+  `).join('');
+}
+
+function selectStyle(key) {
+  selectedStyle = key;
+  document.querySelectorAll('.style-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.key === key);
+  });
+}
+
+// ── URL 输入管理 ──────────────────────────────────────────────────────────────
+document.getElementById('url-add-btn').addEventListener('click', () => {
+  const list = document.getElementById('url-list');
+  const rows = list.querySelectorAll('.url-row');
+  if (rows.length >= 5) return;
+
+  const row = document.createElement('div');
+  row.className = 'url-row';
+  row.innerHTML = `
+    <input class="url-input" type="url" placeholder="https://mp.weixin.qq.com/s/..." />
+    <button class="url-remove" onclick="this.parentElement.remove()" title="删除">×</button>
+  `;
+  list.appendChild(row);
+
+  if (list.querySelectorAll('.url-row').length >= 5) {
+    document.getElementById('url-add-btn').style.display = 'none';
+  }
+});
+
+function getURLs() {
+  return Array.from(document.querySelectorAll('.url-input'))
+    .map(i => i.value.trim())
+    .filter(Boolean);
+}
+
+// ── 日志输出 ──────────────────────────────────────────────────────────────────
+function appendLog(msg) {
+  const body = document.getElementById('terminal-body');
+  const line = document.createElement('span');
+  line.className = 'log-line';
+
+  const lower = msg.toLowerCase();
+  if (msg.startsWith('✓') || msg.startsWith('✅')) line.classList.add('log-ok');
+  else if (msg.startsWith('⚠') || msg.startsWith('✗')) line.classList.add('log-warn');
+  else if (lower.includes('失败') || lower.includes('错误') || lower.includes('error')) line.classList.add('log-err');
+  else if (msg.startsWith('   ') || msg.startsWith('  ')) line.classList.add('log-dim');
+
+  line.textContent = msg;
+  body.appendChild(line);
+  body.appendChild(document.createElement('br'));
+  body.scrollTop = body.scrollHeight;
+}
+
+function addCursor() {
+  const body = document.getElementById('terminal-body');
+  const cur = document.createElement('span');
+  cur.id = 'cursor';
+  cur.className = 'blink';
+  cur.textContent = '█';
+  cur.style.color = '#3fb950';
+  body.appendChild(cur);
+}
+
+function removeCursor() {
+  const cur = document.getElementById('cursor');
+  if (cur) cur.remove();
+}
+
+// ── 主逻辑 ───────────────────────────────────────────────────────────────────
+document.getElementById('run-btn').addEventListener('click', async () => {
+  const urls = getURLs();
+  if (!urls.length) {
+    showError('请至少粘贴一篇公众号文章链接');
+    return;
+  }
+  const invalidURL = urls.find(u => !u.includes('mp.weixin.qq.com'));
+  if (invalidURL) {
+    showError(`链接格式不对：${invalidURL}\n请使用微信公众号文章链接（mp.weixin.qq.com）`);
+    return;
+  }
+
+  hideError();
+  setRunning(true);
+  clearResult();
+  showTerminal();
+  document.getElementById('terminal-body').innerHTML = '';
+  appendLog('$ alchemy run --urls ' + urls.length + ' --style ' + selectedStyle);
+  appendLog('');
+  addCursor();
+
+  let jobId;
+  try {
+    const res = await fetch(`${BACKEND}/api/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        urls,
+        style: selectedStyle,
+        topic: document.getElementById('topic-input').value.trim(),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `服务器错误 ${res.status}`);
+    }
+    const data = await res.json();
+    jobId = data.job_id;
+  } catch (e) {
+    removeCursor();
+    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      showError('无法连接到后端服务。\n\n如果你在本地运行：cd backend && uvicorn main:app --reload\n如果使用线上服务，后端可能正在启动，请稍后再试。');
+    } else {
+      showError(e.message);
+    }
+    setRunning(false);
+    return;
+  }
+
+  // SSE 监听
+  const evtSource = new EventSource(`${BACKEND}/api/stream/${jobId}`);
+  evtSource.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'log') {
+      removeCursor();
+      appendLog(msg.msg);
+      addCursor();
+    } else if (msg.type === 'done') {
+      removeCursor();
+      appendLog('');
+      appendLog('✅ 任务完成！');
+      evtSource.close();
+      setRunning(false);
+      showResult(msg.result);
+    } else if (msg.type === 'error') {
+      removeCursor();
+      appendLog('✗ 失败：' + msg.msg);
+      evtSource.close();
+      setRunning(false);
+      showError(msg.msg);
+    }
+  };
+  evtSource.onerror = () => {
+    evtSource.close();
+    removeCursor();
+    setRunning(false);
+  };
+});
+
+// ── UI 状态 ───────────────────────────────────────────────────────────────────
+function setRunning(running) {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = running;
+  btn.textContent = running ? '⚗ 炼金中...' : '⚗ 开始炼金';
+}
+
+function showTerminal() {
+  document.getElementById('terminal-wrap').classList.add('visible');
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.style.whiteSpace = 'pre-line';
+  box.textContent = msg;
+  box.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('error-box').classList.remove('visible');
+}
+
+function clearResult() {
+  document.getElementById('result-wrap').classList.remove('visible');
+  currentResult = null;
+}
+
+function showResult(result) {
+  currentResult = result;
+  document.getElementById('result-meta').innerHTML =
+    `<strong>《${result.title}》</strong> · ${result.style_name} · ${result.article_count} 篇素材`;
+  document.getElementById('result-box').textContent = result.markdown;
+  document.getElementById('result-wrap').classList.add('visible');
+  document.getElementById('result-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── 复制 / 下载 ───────────────────────────────────────────────────────────────
+document.getElementById('btn-copy').addEventListener('click', () => {
+  if (!currentResult) return;
+  navigator.clipboard.writeText(currentResult.markdown).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = '✓ 已复制！';
+    setTimeout(() => { btn.textContent = '复制 Markdown'; }, 2000);
+  });
+});
+
+document.getElementById('btn-dl').addEventListener('click', () => {
+  if (!currentResult) return;
+  const blob = new Blob([currentResult.markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${currentResult.title.slice(0, 40)}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  location.reload();
+});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+renderStyles();
+</script>
+</body>
+</html>

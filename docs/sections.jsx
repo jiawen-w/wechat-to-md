@@ -50,7 +50,7 @@ function Hero() {
           从看到选题，到打开公众号后台，只需要 5 分钟。
         </p>
         <div className="hero-ctas">
-          <a className="btn btn-primary" href="#cli">
+          <a className="btn btn-primary" href="app.html">
             立刻开始 <span>↗</span>
           </a>
           <a className="btn btn-ghost" href="#styles">
